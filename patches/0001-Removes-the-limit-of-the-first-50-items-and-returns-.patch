@@ -1,0 +1,54 @@
+From 795118c803bc004fefc96842bfcff18164987d26 Mon Sep 17 00:00:00 2001
+From: Vincent Robert <vincent.robert@platform.sh>
+Date: Thu, 14 Sep 2023 16:19:07 +0200
+Subject: [PATCH] Removes the limit of the first 50 items, and returns all the
+ items via pagination
+
+---
+ .../client/src/Model/ApiResourceBase.php      | 27 ++++++++++++++-----
+ 1 file changed, 21 insertions(+), 6 deletions(-)
+
+diff --git a/vendor/platformsh/client/src/Model/ApiResourceBase.php b/vendor/platformsh/client/src/Model/ApiResourceBase.php
+index 6887236..771a24b 100644
+--- a/vendor/platformsh/client/src/Model/ApiResourceBase.php
++++ b/vendor/platformsh/client/src/Model/ApiResourceBase.php
+@@ -318,15 +318,30 @@ abstract class ApiResourceBase implements \ArrayAccess
+         // if ($limit) {
+             // $options['query']['count'] = $limit;
+         // }
+-        $request = new Request('get', $url);
+-        $data = self::send($request, $client, $options);
+ 
+-        // @todo remove this when the API implements a 'count' parameter
+-        if (!empty($limit) && count($data) > $limit) {
+-            $data = array_slice($data, 0, $limit);
++        $page=1;
++        $response = [];
++
++        while (!empty($page)) {
++
++            $request = new Request('get', $url."?page=$page");
++            $data = self::send($request, $client, $options);
++
++            if (array_key_exists('next', $data['_links']))
++                $page++;
++            else
++                $page='';
++
++            // @todo remove this when the API implements a 'count' parameter
++            if (!empty($limit) && count($data) > $limit) {
++                $data = array_slice($data, 0, $limit);
++            }
++
++            $response = array_merge($response, static::wrapCollection($data, $url, $client));
++
+         }
+ 
+-        return static::wrapCollection($data, $url, $client);
++        return $response;
+     }
+ 
+     /**
+-- 
+2.34.1
+
